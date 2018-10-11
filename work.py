@@ -1,69 +1,46 @@
 from jira import JIRA
-import timestring
-import datetime
 import sys
-from issueSummary import issueSummary
+from Developer import Developer
+import urllib3
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 reload(sys)
 sys.setdefaultencoding('utf8')
 
-userKey = 'user'
-credentials = (userKey, 'password')
-jqlQuery = 'project="NEO - Neo project" AND updatedDate >= startOfDay() AND updatedDate < endOfDay()'
+iterationCode = input("Please input iteration version: ")
+credentials = ('username', 'password')
+jqlQuery = 'project="NEO - Neo project" and Sprint = "'+str(iterationCode)+'" and Sprint not in futureSprints()'
 
 options = {
-    'server': 'https://tracker.vendoservices.com:8550/'
+    'server': 'https://tracker.site.com:8550/',
+    'verify': False,
 }
 
-# Instantiate Jira library
 jira = JIRA(options=options, basic_auth=credentials)
 tasks = jira.search_issues(jqlQuery)
 
-# Collection of logged works
-myWorkLogged = {}
-todayDateObj = timestring.Date(datetime.datetime.today())
-todayDate = str(todayDateObj.year)+"-"+str(todayDateObj.month)+"-"+str(todayDateObj.day)
+developers = {}
 
 for task in tasks:
     issue = jira.issue(task)
+
+    if "Deployment Ticket of Iteration "+str(iterationCode) in issue.fields.summary:
+        continue
+
     workLogs = jira.worklogs(issue.key)
 
-    # Iterate over worklogs for each task
     for workLog in workLogs:
-
-        workCreatedTimeObj = timestring.Date(workLog.created)
-        workCreatedTime = str(workCreatedTimeObj.year) + "-" + str(workCreatedTimeObj.month) + "-" + str(workCreatedTimeObj.day)
-
-        if not workCreatedTime == todayDate:
+        if not workLog.updateAuthor.active:
             continue
 
-        workLogUserKey = jira.search_users(workLog.updateAuthor.name, maxResults=1)[0]
+        updateAuthor = workLog.updateAuthor.name
 
-        if workLogUserKey.key == userKey:
+        if not developers.get(updateAuthor):
+            developers[updateAuthor] = Developer(updateAuthor)
 
-            if issue.key not in myWorkLogged:
-                myWorkLogged[issue.key] = []
-
-            myWorkLogged[issue.key].append(workLog)
-
-issueSummaries = []
-for issue, loggedTimes in myWorkLogged.items():
-    issueSummaryTmp = issueSummary(issue, jira.issue(issue).fields.summary)
-
-    for loggedTime in loggedTimes:
-        issueSummaryTmp.addSeconds(loggedTime.timeSpentSeconds)
-
-        issueSummaryTmp.timeToString()
-    issueSummaries.append(issueSummaryTmp)
+        developers[updateAuthor].add_ticket(issue)
+        developers[updateAuthor].add_work(workLog)
 
 
-# Print issue summary in a human way
-for issueSummary in issueSummaries:
-    print issueSummary
-
-
-
-
-
-
-
+for name, developer in developers.items():
+        print(developer)
