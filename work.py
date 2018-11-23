@@ -1,4 +1,5 @@
 from jira import JIRA
+import os
 import sys
 from Developer import Developer
 import urllib3
@@ -8,11 +9,11 @@ reload(sys)
 sys.setdefaultencoding('utf8')
 
 iterationCode = input("Please input iteration version: ")
-credentials = ('username', 'password')
+credentials = (os.environ['JIRA_USERNAME'], os.environ['JIRA_PASSWORD'])
 jqlQuery = 'project="NEO - Neo project" and Sprint = "'+str(iterationCode)+'" and Sprint not in futureSprints()'
 
 options = {
-    'server': 'https://tracker.site.com:8550/',
+    'server': os.environ['JIRA_ENDPOINT'],
     'verify': False,
 }
 
